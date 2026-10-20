@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Solar Voltage Prediction System
 
 A machine learning web application that predicts solar panel voltage using **Multiple Linear Regression** based on light intensity and temperature. Built with Python and Streamlit, the application provides an interactive dashboard for making predictions, exploring solar datasets, and reviewing model performance.

@@ -3,3 +3,8 @@
 .env.*
 !.env.example
 
+# Python environment and cache
+.venv/
+venv/
+__pycache__/
+*.py[cod]
