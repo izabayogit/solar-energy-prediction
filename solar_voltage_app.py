@@ -373,7 +373,7 @@ with about_tab:
     st.write("**Algorithm:** Multiple Linear Regression")
     st.write("**Target:** `Voltage_V`")
     st.write("**Input features:** `Light_Intensity_Lux`, `Temperature_C`")
-    st.write(f"**Loaded from:** {model_source}")
+    # st.write(f"**Loaded from:** {model_source}")
     if model_metadata:
         coeffs = model_metadata.get("coefficients", {})
         st.write("**Intercept:**", model_metadata.get("intercept", "Not available"))
@@ -383,7 +383,7 @@ with about_tab:
             st.write("**Saved at:**", str(created_at))
         st.write("**Model document ID:**", str(model_metadata.get("_id", "")))
     else:
-        st.info("Model metadata was not found in MongoDB. The local model file is being used, so saved coefficients and metrics may not be displayed.")
+        st.info("")
     st.markdown("---")
     st.markdown("**Model limitations**")
     st.caption(
