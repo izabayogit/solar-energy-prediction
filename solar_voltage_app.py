@@ -71,7 +71,7 @@ st.markdown(
 # ---- Sidebar / settings --------------------------------------------
 st.sidebar.markdown("## ☀️ Solar Lab")
 st.sidebar.caption("Solar voltage prediction dashboard")
-mongo_uri = st.sidebar.text_input("MongoDB connection URI", value=os.getenv("MONGO_URI", MONGO_URI_DEFAULT))
+mongo_uri = MONGO_URI_DEFAULT
 use_mongodb = st.sidebar.toggle("Read model/data from MongoDB", value=True)
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Model inputs**")
