@@ -169,10 +169,11 @@ valid_data = not data.empty
 row_count = len(data) if valid_data else 0
 metrics = model_metadata.get("evaluation_metrics", {}) if model_metadata else {}
 col1, col2, col3, col4 = st.columns(4)
+val = f'{metrics["R2"]:.3f}' if isinstance(metrics.get("R2"), (int, float)) else "—"
 with col1:
     st.markdown(f'<div class="metric-card"><div class="metric-label">Dataset records</div><div class="metric-value">{row_count:,}</div><div class="muted">{data_source}</div></div>', unsafe_allow_html=True)
 with col2:
-    val = f'{metrics["R2"]:.3f}' if isinstance(metrics.get("R2"), (int, float)) else "—"
+   
     st.markdown(f'<div class="metric-card"><div class="metric-label">R² score</div><div class="metric-value">{val}</div><div class="muted">Test-set fit</div></div>', unsafe_allow_html=True)
 with col3:
     val = f'{metrics["MAE"]:.3f} V' if isinstance(metrics.get("MAE"), (int, float)) else "—"
