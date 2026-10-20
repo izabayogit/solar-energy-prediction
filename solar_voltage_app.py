@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.express as px
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from pymongo import MongoClient
 from gridfs import GridFS
 from bson.objectid import ObjectId
@@ -70,7 +71,7 @@ st.markdown(
 # ---- Sidebar / settings --------------------------------------------
 st.sidebar.markdown("## ☀️ Solar Lab")
 st.sidebar.caption("Solar voltage prediction dashboard")
-mongo_uri = MONGO_URI_DEFAULT
+mongo_uri = st.sidebar.text_input("MongoDB connection URI", value=os.getenv("MONGO_URI", MONGO_URI_DEFAULT))
 use_mongodb = st.sidebar.toggle("Read model/data from MongoDB", value=True)
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Model inputs**")
@@ -168,19 +169,65 @@ if model is None:
 valid_data = not data.empty
 row_count = len(data) if valid_data else 0
 metrics = model_metadata.get("evaluation_metrics", {}) if model_metadata else {}
+metrics = metrics if isinstance(metrics, dict) else {}
+
+# Support metric keys saved with either uppercase or lowercase names.
+def _metric_value(metric_dict, key):
+    value = metric_dict.get(key, metric_dict.get(key.lower()))
+    try:
+        value = float(value)
+        return value if np.isfinite(value) else None
+    except (TypeError, ValueError):
+        return None
+
+r2_value = _metric_value(metrics, "R2")
+mae_value = _metric_value(metrics, "MAE")
+rmse_value = _metric_value(metrics, "RMSE")
+metrics_source = "Saved test-set metrics"
+
+# If the MongoDB model document does not include saved metrics, calculate a
+# fallback using rows with measured voltage and both input features.
+# This fallback uses the available dataset, so it is not a substitute for a
+# properly held-out test-set evaluation.
+if (r2_value is None or mae_value is None or rmse_value is None) and valid_data:
+    required_columns = ["Light_Intensity_Lux", "Temperature_C", "Voltage_V"]
+    if all(column in data.columns for column in required_columns):
+        evaluation_data = data[required_columns].copy()
+        for column in required_columns:
+            evaluation_data[column] = pd.to_numeric(evaluation_data[column], errors="coerce")
+        evaluation_data = evaluation_data.replace([np.inf, -np.inf], np.nan).dropna()
+        if len(evaluation_data) >= 2:
+            try:
+                X_eval = evaluation_data[["Light_Intensity_Lux", "Temperature_C"]]
+                y_eval = evaluation_data["Voltage_V"]
+                y_eval_pred = model.predict(X_eval)
+                if r2_value is None:
+                    r2_value = float(r2_score(y_eval, y_eval_pred))
+                if mae_value is None:
+                    mae_value = float(mean_absolute_error(y_eval, y_eval_pred))
+                if rmse_value is None:
+                    rmse_value = float(np.sqrt(mean_squared_error(y_eval, y_eval_pred)))
+                metrics_source = "Calculated from available dataset (not held-out test data)"
+            except Exception as exc:
+                st.warning(f"Could not calculate fallback model metrics: {exc}")
+
 col1, col2, col3, col4 = st.columns(4)
-val = f'{metrics["R2"]:.3f}' if isinstance(metrics.get("R2"), (int, float)) else "—"
 with col1:
     st.markdown(f'<div class="metric-card"><div class="metric-label">Dataset records</div><div class="metric-value">{row_count:,}</div><div class="muted">{data_source}</div></div>', unsafe_allow_html=True)
 with col2:
-   
-    st.markdown(f'<div class="metric-card"><div class="metric-label">R² score</div><div class="metric-value">{val}</div><div class="muted">Test-set fit</div></div>', unsafe_allow_html=True)
+    val = f"{r2_value:.3f}" if r2_value is not None else "Not available"
+    st.markdown(f'<div class="metric-card"><div class="metric-label">R² score</div><div class="metric-value">{val}</div><div class="muted">Model evaluation</div></div>', unsafe_allow_html=True)
 with col3:
-    val = f'{metrics["MAE"]:.3f} V' if isinstance(metrics.get("MAE"), (int, float)) else "—"
+    val = f"{mae_value:.3f} V" if mae_value is not None else "Not available"
     st.markdown(f'<div class="metric-card"><div class="metric-label">Mean absolute error</div><div class="metric-value">{val}</div><div class="muted">Lower is better</div></div>', unsafe_allow_html=True)
 with col4:
-    val = f'{metrics["RMSE"]:.3f} V' if isinstance(metrics.get("RMSE"), (int, float)) else "—"
+    val = f"{rmse_value:.3f} V" if rmse_value is not None else "Not available"
     st.markdown(f'<div class="metric-card"><div class="metric-label">RMSE</div><div class="metric-value">{val}</div><div class="muted">Lower is better</div></div>', unsafe_allow_html=True)
+
+if r2_value is not None or mae_value is not None or rmse_value is not None:
+    st.caption(f"Metric source: {metrics_source}.")
+else:
+    st.info("Evaluation metrics are unavailable. Save them in MongoDB with the trained model, or provide a dataset containing Light_Intensity_Lux, Temperature_C, and measured Voltage_V.")
 
 st.markdown("---")
 predict_tab, explore_tab, about_tab = st.tabs(["⚡ Predict voltage", "📊 Explore dataset", "ℹ️ Model details"])
